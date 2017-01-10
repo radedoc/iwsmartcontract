@@ -1,0 +1,322 @@
+*************************************************************************
+ * Name: Richard Adjei 
+ *
+ * Description: Contract to simulate the Blockchain Investment Fund.
+ *************************************************************************/
+
+pragma solidity ^0.4.2;
+
+contract DAO {
+
+/** -----------------------------------------------------Variables for the DAO -------------------------------------------------**/
+	address chairperson; // Holds the address of the person who made the DAO.
+	address[] public investors; // Holds the list of people who currently own tokens
+	uint public initialfunding; // Holds the amount of money was initially contributed to the fund.
+	uint public currentValuation; // Holds the current valua of the fund.
+	bool public algorithmFunded; // Tells whether the function has been funded or not
+	uint public tokensOnSale; // Tells the number of tokens on sale.
+	address[] tokenSellers; // Tells the list of people selling their tokens.
+	string[] public ownedSecurities; // Tells which securities are held by the fund.
+	uint public cashOnHand;  // Tells how much money the fund has in cash.
+	bool beginFundingBeenCalled = false; //  Tells whether the funding period has started or not.
+	uint public tokenWorth; // Tells the actual value of the token based on the valuation.
+	uint[] AXE; // Holds the prices of the AXE security for the simulation.
+	uint public counter; // counter that goes through the prices. 
+	uint public priceOf_axe; // Hold the prices of the AXE shares/
+	bool priceSetUp = false; // Boolean that helps prevent a function from being called twice.
+	uint public numberOfAxeSharesOwned; // Variable that hold the number of AXE shares owned.
+	uint public CheapestTokenPrice; // variable that holds the cheapest token price on the market.
+
+
+/** -------------------------------------------------Mapping Used in the DAO---------------------------------------------------------**/
+	mapping(address => pouch) pouches; // Hold the tokens of investors.
+	mapping(address => uint) amountInvested; // Tells how much an investor invested.
+	mapping(string => uint) securitiesOwned; // Tells which securities the fund owns
+	mapping(address => bool) public contributed; // Tells whether an account contributed in the inital funding or not.
+	mapping(address => tokensBeingSold) TokenMarket; // This holds all the tokens being sold.
+
+
+/** -------------------------------------------------Structs used in the DAO---------------------------------------------------------**/
+	struct pouch{
+		uint numberOfTokens;
+	}
+
+	struct tokensBeingSold{
+		uint numberOfTokens;
+		uint price;
+	}
+/** -----------------------------------------------------Contstructor----------------------------------------------------------------**/
+
+	// Constructor. 
+	function DAO() {
+		chairperson = msg.sender;
+		algorithmFunded = false;
+		currentValuation = 0;
+		counter = 0;
+		bought = false;
+		setPrices();
+	}
+	
+/** ---------------------------------------------------Private Functions--------------------------------------------------------------**/
+	
+	// Function that inserts AXE prices into the array that holds them.
+	function setPrices() internal{
+	    priceSetUp = true;
+	    AXE.push(4574);
+		AXE.push(4550);
+		AXE.push(4585);
+		AXE.push(4610);
+		AXE.push(4620);
+		AXE.push(4624);
+		AXE.push(4646);
+		AXE.push(4645);
+		AXE.push(4672);
+		AXE.push(4679);
+		AXE.push(4692);
+		AXE.push(4685);
+		AXE.push(4684);
+		AXE.push(4668);
+		AXE.push(4647);
+		AXE.push(4646);
+		AXE.push(4630);
+		AXE.push(4646);
+		AXE.push(4656);
+		AXE.push(4656);
+		AXE.push(4665);
+		AXE.push(4676);
+		AXE.push(4676);
+		AXE.push(4667);
+		AXE.push(4669);
+		AXE.push(4681);
+		AXE.push(4678);
+		AXE.push(4665);
+		AXE.push(4672);
+		AXE.push(4673);
+		AXE.push(4675);
+		AXE.push(4676);
+		AXE.push(4671);
+		AXE.push(4669);
+		AXE.push(4675);
+		AXE.push(4648);
+		AXE.push(4651);
+		AXE.push(4647);
+		AXE.push(4649);
+		AXE.push(4639);
+		AXE.push(4649);
+		AXE.push(4650);
+		AXE.push(4650);
+		AXE.push(4656);
+		AXE.push(4663);
+		AXE.push(4656);
+		AXE.push(4664);
+		AXE.push(4665);
+		AXE.push(4674);
+		priceOf_axe = getPrice('AXE');
+	}
+
+	// Private method that returns the number of shares of a particular security is owned by a fund.
+	function numberOfSecuritiesOwned(string _security) internal returns (uint) {
+		return securitiesOwned[_security];
+	}
+
+	// Private method that returns whether the fund owns a particular security or not.
+	function ownSecurity(string _security) internal returns (bool) {
+		if (securitiesOwned[_security] != 0) {
+			return true;
+		}
+		return false;
+	}
+
+	// Private function that updates values in the DAO after you buy a number of shares of a security.
+	function boughtSecurities(string _securityName, uint _number, uint price) internal {
+		if (securitiesOwned[_securityName] == 0) {
+			ownedSecurities.push(_securityName);
+		}
+		numberOfAxeSharesOwned = numberOfAxeSharesOwned + _number;
+		cashOnHand = cashOnHand - (_number * price); 
+
+	}
+
+	// Private function that updates values in the DAO after you have sold a number of shares of a security.
+	function soldSecurity(string _securityName, uint _number, uint price) internal {
+	if (canISellSecurity(_securityName, _number)) {
+		numberOfAxeSharesOwned = numberOfAxeSharesOwned - _number;
+		cashOnHand = cashOnHand + (_number * price);
+		}
+	}
+
+	// Private function that checks to see if you can sell a particular number of shares of a security or not.
+	function canISellSecurity(string _securityName, uint _number) internal returns (bool) {
+		return (securitiesOwned[_securityName] >= _number);
+	}
+	
+	// Private function that checks to see whether you can buy a particular number of shares of a security or not.
+	function canIBuySecurity(string _securityName, uint _number, uint _price) internal returns (bool) {
+		return (cashOnHand >= _number * _price);
+	}
+
+/**------------------------------------------------------Private Functions Designed to mimick API functions------------------------------**/
+
+	// API function for buying.  It is private because it is being used for the simulation.
+	function buySecurity(string _securityName, uint _number, uint price) internal {
+		if (canIBuySecurity(_securityName, _number, price)) {
+			boughtSecurities(_securityName, _number, price);
+		}
+	}
+
+	// API function for getting the price of a security.  It is private because it is being used for the simulation.
+	function getPrice(string _security) internal returns (uint) {
+		if (counter == AXE.length){
+			counter = 0;
+		}
+	    counter++;
+	    return AXE[counter - 1];
+	}
+
+	// API function for selling a security.  It is private because it is being used for the simulation.
+	function sellSecurity(string _securityName, uint _number, uint price) internal {
+		if (canISellSecurity(_securityName, _number)) {
+			soldSecurity(_securityName, _number, price);
+		}
+	}
+
+/** ---------------------------------------------------Public Functions ---------------------------------------------------------------**/
+
+	// Function that can only be called by the maker of the smart contract. It starts the funding period.
+	function beginFunding() {
+		if (msg.sender != chairperson){
+			throw;
+		}
+
+		if (beginFundingBeenCalled) {
+			throw;
+		}
+
+		beginFundingBeenCalled = true;
+	}
+
+	// Function that allows people to contribute to fund the algorithmic trading Software during funding period.
+	function contribute(uint contribution) returns (bool) {
+		if (algorithmFunded){
+			throw;
+		}
+
+		if (contributed[msg.sender]) {
+			amountInvested[msg.sender] += contribution; 
+		}
+		else {
+			contributed[msg.sender] = true;
+			amountInvested[msg.sender]= contribution;
+			investors.push(msg.sender);
+		}
+
+		currentValuation += contribution;
+		return true;
+	}
+
+	// Function that allows people to withdraw their contributions to the algorithmic trading Softwre during funding period.
+	function withdrawContribution() returns (bool) {
+
+		if (algorithmFunded){
+			throw;
+		}
+
+	 	var amount = amountInvested[msg.sender];
+        if (amount > 0) {
+            // It is important to set this to zero because the recipient
+            // can call this function again as part of the receiving call
+            // before `send` returns.
+            amountInvested[msg.sender] = 0;
+
+        }
+        return true;
+	}
+
+	// Function that closes the funding period for an Algorithmic trader.
+	function endFundingPeriod() returns (bool) {
+	    if (msg.sender != chairperson){
+	        throw;
+	    }
+		algorithmFunded = true;
+		initialfunding = currentValuation;
+		cashOnHand = initialfunding;
+		tokenWorth = currentValuation/ initialfunding;
+		CheapestTokenPrice = initialfunding;
+		for (uint i = 0; i < investors.length; i++) {
+			pouches[investors[i]].numberOfTokens = amountInvested[investors[i]];
+		}
+	}
+	
+	// Function that runs the Algoirithmic trading software simulation.
+	function runAlgorithmicTradingSoftware() {
+		    var newPrice = getPrice('AXE');
+		    uint number = 1;
+
+		    while (cashOnHand > number * newPrice) {
+		    	number = number + 1;
+		    }
+		     number = number - 1;
+		    if (priceOf_axe < newPrice) {
+		        buySecurity('AXE', number, newPrice);
+		    }
+		    else if (newPrice < priceOf_axe) {
+		        sellSecurity('AXE', securitiesOwned['AXE'], newPrice);    
+		    }
+		    priceOf_axe = newPrice;
+		    currentValuation = cashOnHand + (numberOfAxeSharesOwned * priceOf_axe);
+		    tokenWorth = currentValuation/initialfunding;
+		    numberToBePurchased = number;
+	 }
+
+	// Function that allows people to sell their tokens.
+	function sellTokens(uint _numberOfTokensBeingSold, uint _price) returns (bool) {
+		if (_numberOfTokensBeingSold > pouches[msg.sender].numberOfTokens) {
+			throw;
+		}
+		if (_price < CheapestTokenPrice){
+			CheapestTokenPrice = _price;
+		}
+		tokenSellers.push(msg.sender);
+		tokensOnSale += _numberOfTokensBeingSold;
+		TokenMarket[msg.sender].numberOfTokens += _numberOfTokensBeingSold;
+		TokenMarket[msg.sender].price = _price;
+		return true;
+	}
+
+	// Function that allows people to buy tokens from the Token Market.
+	function buyTokens(uint numberOfTokensBeingBought, uint _price) returns (uint) {
+		if (numberOfTokensBeingBought > tokensOnSale) {
+			throw;
+		}
+
+		tokensOnSale -= numberOfTokensBeingBought;
+		uint indexCounter = 0;
+
+
+		while(numberOfTokensBeingBought != 0) {
+			tokensBeingSold current = TokenMarket[tokenSellers[indexCounter]];
+			if (current.price < _price) {
+				if (numberOfTokensBeingBought <= current.numberOfTokens) {
+					current.numberOfTokens = current.numberOfTokens - numberOfTokensBeingBought;
+					pouches[tokenSellers[indexCounter]].numberOfTokens -= numberOfTokensBeingBought;
+					pouches[msg.sender].numberOfTokens += numberOfTokensBeingBought;
+					numberOfTokensBeingBought = 0;
+				}
+				else {
+					current.numberOfTokens = 0;
+					pouches[tokenSellers[indexCounter]].numberOfTokens -= current.numberOfTokens;
+					pouches[msg.sender].numberOfTokens += current.numberOfTokens;
+					
+					for (uint j = indexCounter; j<tokenSellers.length-1; j++){
+            		    tokenSellers[j] = tokenSellers[j+1];
+        	    	}
+        		    delete tokenSellers[tokenSellers.length-1];
+        		    tokenSellers.length--;
+        		    
+					numberOfTokensBeingBought = numberOfTokensBeingBought - current.numberOfTokens;
+				}
+			}
+		}
+            return numberOfTokensBeingBought;
+    	}
+}
